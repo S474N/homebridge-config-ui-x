@@ -13,6 +13,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs-extra';
 import * as tcpPortUsed from 'tcp-port-used';
 import * as si from 'systeminformation';
+import * as semver from 'semver';
 import * as ora from 'ora';
 import { Tail } from 'tail';
 
@@ -29,6 +30,7 @@ export class HomebridgeServiceHelper {
   public allowRunRoot = false;
   public asUser;
   private log: fs.WriteStream | NodeJS.WriteStream;
+  private homebridgePackage: { version: string, bin: { homebridge: string } };
   private homebridgeBinary: string;
   private homebridge: child_process.ChildProcessWithoutNullStreams;
   private homebridgeStopped = true;
@@ -272,12 +274,15 @@ export class HomebridgeServiceHelper {
       // verify the config
       await this.configCheck();
 
-      // load startup options if they exist
-      await this.loadHomebridgeStartupOptions();
+      // log os info
+      this.logger(`OS: ${os.type()} ${os.release()} ${os.arch()}`);
 
       // work out the homebridge binary path
       this.homebridgeBinary = await this.findHomebridgePath();
       this.logger(`Homebridge Path: ${this.homebridgeBinary}`);
+
+      // load startup options if they exist
+      await this.loadHomebridgeStartupOptions();
 
       // get the standalone ui binary on this system
       this.uiBinary = path.resolve(process.env.UIX_BASE_PATH, 'dist', 'bin', 'standalone.js');
@@ -303,10 +308,13 @@ export class HomebridgeServiceHelper {
     // start the ui
     this.runUi();
 
-    process.addListener('message', (event) => {
+    process.addListener('message', (event, callback) => {
       switch (event) {
         case 'clearCachedAccessories': {
-          return this.clearHomebridgeCachedAccessories();
+          return this.clearHomebridgeCachedAccessories(callback);
+        }
+        case 'deleteSingleCachedAccessory': {
+          return this.clearHomebridgeCachedAccessories(callback);
         }
         case 'restartHomebridge': {
           return this.restartHomebridge();
@@ -333,7 +341,7 @@ export class HomebridgeServiceHelper {
           this.homebridge.kill('SIGKILL');
         } catch (e) { }
         process.exit(1282);
-      }, 5100);
+      }, 7000);
     };
 
     process.on('SIGTERM', exitHandler);
@@ -394,7 +402,7 @@ export class HomebridgeServiceHelper {
       childProcessOpts,
     );
 
-    this.logger(`Started Homebridge with PID: ${this.homebridge.pid}`);
+    this.logger(`Started Homebridge v${this.homebridgePackage.version} with PID: ${this.homebridge.pid}`);
 
     this.homebridge.stdout.on('data', (data) => {
       this.log.write(data);
@@ -480,8 +488,8 @@ export class HomebridgeServiceHelper {
 
     if (homebridgeModulePath) {
       try {
-        const homebridgePackage = await fs.readJson(path.join(homebridgeModulePath, 'package.json'));
-        return path.resolve(homebridgeModulePath, homebridgePackage.bin.homebridge);
+        this.homebridgePackage = await fs.readJson(path.join(homebridgeModulePath, 'package.json'));
+        return path.resolve(homebridgeModulePath, this.homebridgePackage.bin.homebridge);
       } catch (e) {
         console.log(e);
       }
@@ -543,6 +551,11 @@ export class HomebridgeServiceHelper {
    * Ensures the storage path defined exists
    */
   public async storagePathCheck() {
+    if (os.platform() === 'darwin' && !await fs.pathExists(path.dirname(this.storagePath))) {
+      this.logger(`Cannot create Homebridge storage directory, base path does not exist: ${path.dirname(this.storagePath)}`, 'fail');
+      process.exit(1);
+    }
+
     if (!await fs.pathExists(this.storagePath)) {
       this.logger(`Creating Homebridge directory: ${this.storagePath}`);
       await fs.mkdirp(this.storagePath);
@@ -807,9 +820,11 @@ export class HomebridgeServiceHelper {
           this.homebridgeOpts.push('-D');
         }
 
-        // check if remove orphans should be enabled
-        if (homebridgeStartupOptions.removeOrphans && !this.homebridgeOpts.includes('-R')) {
-          this.homebridgeOpts.push('-R');
+        // check if keep orphans should be enabled, only for Homebridge v1.0.2 and later
+        if (this.homebridgePackage && semver.gte(this.homebridgePackage.version, '1.0.2', { includePrerelease: true })) {
+          if (homebridgeStartupOptions.keepOrphans && !this.homebridgeOpts.includes('-K')) {
+            this.homebridgeOpts.push('-K');
+          }
         }
 
         // insecure mode is enabled by default, allow it to be removed if set to false
@@ -840,26 +855,12 @@ export class HomebridgeServiceHelper {
   /**
    * Clears the Homebridge Cached Accessories
    */
-  private clearHomebridgeCachedAccessories() {
-    const cachedAccessoriesPath = path.resolve(this.storagePath, 'accessories', 'cachedAccessories');
-
-    const clearAccessoriesCache = () => {
-      try {
-        if (fs.existsSync(cachedAccessoriesPath)) {
-          this.logger('Clearing Cached Homebridge Accessories...');
-          fs.unlinkSync(cachedAccessoriesPath);
-        }
-      } catch (e) {
-        this.logger(`ERROR: Failed to clear Homebridge Accessories Cache at ${cachedAccessoriesPath}`);
-        console.error(e);
-      }
-    };
-
+  private clearHomebridgeCachedAccessories(callback) {
     if (this.homebridge && !this.homebridgeStopped) {
-      this.homebridge.once('close', clearAccessoriesCache);
+      this.homebridge.once('close', callback);
       this.restartHomebridge();
     } else {
-      clearAccessoriesCache();
+      callback();
     }
   }
 
@@ -878,7 +879,7 @@ export class HomebridgeServiceHelper {
             this.homebridge.kill('SIGKILL');
           } catch (e) { }
         }
-      }, 5100);
+      }, 7000);
     }
   }
 
