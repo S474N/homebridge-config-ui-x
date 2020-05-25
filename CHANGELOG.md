@@ -2,12 +2,40 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
-## Next
+## NEXT 
+
+### Notable Changes
+
+* **API:** Added Swagger API Documentation; you can access this via `/swagger` (this is the same API already in use by the web client)
+* **Auth:** Added the ability to secure your Homebridge UI user account with **Two Factor Authentication**, drop-down menu -> *User Accounts* -> *Setup 2FA*
+* **Login:** Custom wallpaper can now be added by added a `ui-wallpaper.jpg` file in your Homebridge storage directory (and leaving the `loginWallpaper` config option blank) ([#697](https://github.com/oznu/homebridge-config-ui-x/issues/690))
+* **Login:** Custom wallpaper changes will now break the browser cache ([#700](https://github.com/oznu/homebridge-config-ui-x/issues/700))
+* **i18n:** Portuguese language translation added by [@SamuelMagano](https://github.com/SamuelMagano) ([#698](https://github.com/oznu/homebridge-config-ui-x/pull/698))
+
+### Other Changes
+
+* **i18n:** Improvements to Polish language translation ([#695](https://github.com/oznu/homebridge-config-ui-x/pull/695))
+* **i18n:** Improvements to Simplified Chinese language translations ([#696](https://github.com/oznu/homebridge-config-ui-x/pull/696))
+* **i18n:** Improvements to French language translations ([#699](https://github.com/oznu/homebridge-config-ui-x/pull/699))
+
+## 4.20.0 (2020-05-21)
+
+### Notable Changes
+
+* **Server:** Added the ability to unpair selected bridges / cameras / TVs without needed to reset the main Homebridge instance, this feature is available from the drop down menu -> *Homebridge Settings* 
+* **hb-service:** Users can now remove individual accessories from the accessory cache, drop-down menu -> *Homebridge Settings* -> *Remove Single Cached Accessory* ([#202](https://github.com/oznu/homebridge-config-ui-x/issues/202))
+* **i18n:** Slovenian language translation added by [@mitchoklemen](https://github.com/mitchoklemen) ([#694](https://github.com/oznu/homebridge-config-ui-x/pull/694))
+
+### Other Changes
+
+* **i18n:** Improvements to English language translation ([#689](https://github.com/oznu/homebridge-config-ui-x/pull/689))
+* **i18n:** Improvements to Czech language translation ([#691](https://github.com/oznu/homebridge-config-ui-x/pull/691))
+* **i18n:** Improvements to Polish language translation ([#693](https://github.com/oznu/homebridge-config-ui-x/pull/693))
 
 ### Bug Fixes
 
 * **hb-service:** Fix a bug that caused strange behaviour on boot for users running macOS with home folders mounted on a remote network share ([#680](https://github.com/oznu/homebridge-config-ui-x/issues/680))
-* **i18n:** Improvements to English language translation ([#689](https://github.com/oznu/homebridge-config-ui-x/issues/689))
+* **Accessory Control:** Fixed an issue where the accessory name would sometimes not be displayed correctly ([#690](https://github.com/oznu/homebridge-config-ui-x/issues/690))
 
 ## 4.19.0 (2020-05-14)
 

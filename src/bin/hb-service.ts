@@ -308,10 +308,13 @@ export class HomebridgeServiceHelper {
     // start the ui
     this.runUi();
 
-    process.addListener('message', (event) => {
+    process.addListener('message', (event, callback) => {
       switch (event) {
         case 'clearCachedAccessories': {
-          return this.clearHomebridgeCachedAccessories();
+          return this.clearHomebridgeCachedAccessories(callback);
+        }
+        case 'deleteSingleCachedAccessory': {
+          return this.clearHomebridgeCachedAccessories(callback);
         }
         case 'restartHomebridge': {
           return this.restartHomebridge();
@@ -338,7 +341,7 @@ export class HomebridgeServiceHelper {
           this.homebridge.kill('SIGKILL');
         } catch (e) { }
         process.exit(1282);
-      }, 5100);
+      }, 7000);
     };
 
     process.on('SIGTERM', exitHandler);
@@ -852,26 +855,12 @@ export class HomebridgeServiceHelper {
   /**
    * Clears the Homebridge Cached Accessories
    */
-  private clearHomebridgeCachedAccessories() {
-    const cachedAccessoriesPath = path.resolve(this.storagePath, 'accessories', 'cachedAccessories');
-
-    const clearAccessoriesCache = () => {
-      try {
-        if (fs.existsSync(cachedAccessoriesPath)) {
-          this.logger('Clearing Cached Homebridge Accessories...');
-          fs.unlinkSync(cachedAccessoriesPath);
-        }
-      } catch (e) {
-        this.logger(`ERROR: Failed to clear Homebridge Accessories Cache at ${cachedAccessoriesPath}`);
-        console.error(e);
-      }
-    };
-
+  private clearHomebridgeCachedAccessories(callback) {
     if (this.homebridge && !this.homebridgeStopped) {
-      this.homebridge.once('close', clearAccessoriesCache);
+      this.homebridge.once('close', callback);
       this.restartHomebridge();
     } else {
-      clearAccessoriesCache();
+      callback();
     }
   }
 
@@ -890,7 +879,7 @@ export class HomebridgeServiceHelper {
             this.homebridge.kill('SIGKILL');
           } catch (e) { }
         }
-      }, 5100);
+      }, 7000);
     }
   }
 
